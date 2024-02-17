@@ -1,49 +1,48 @@
-use bevy::{
-    app::{App, Startup, Update},
-    ecs::{
-        component::Component,
-        query::With,
-        schedule::IntoSystemConfigs,
-        system::{Commands, Query},
-    },
-    DefaultPlugins,
-};
+use bevy::prelude::*;
 
 #[derive(Component)]
-struct Person;
+struct Player;
 
 #[derive(Component)]
-struct Name(String);
+struct Velocity(Vec2);
+
+#[derive(Component)]
+struct Gravity(f32);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, add_people)
-        .add_systems(Update, (hello_world, (update_people, greet_people).chain()))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (apply_velocity, apply_gravity).chain())
         .run();
 }
 
-fn hello_world() {
-    println!("hello world!");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("sprite/character/robot/walk0.png"),
+            transform: Transform {
+                translation: Vec3::new(0.0, 200.0, 0.0),
+                ..default()
+            },
+            ..default()
+        },
+        Player,
+        Velocity(Vec2::new(0.0, 0.0)),
+        Gravity(100.0),
+    ));
 }
 
-fn add_people(mut commands: Commands) {
-    commands.spawn((Person, Name("Elaina Proctor".to_string())));
-    commands.spawn((Person, Name("Renzo Hume".to_string())));
-    commands.spawn((Person, Name("Zayna Nieves".to_string())));
-}
-
-fn greet_people(query: Query<&Name, With<Person>>) {
-    for name in &query {
-        println!("hello {}!", name.0);
+fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
+    for (mut d, v) in &mut query {
+        d.translation.x += v.0.x * time.delta_seconds();
+        d.translation.y += v.0.y * time.delta_seconds();
     }
 }
 
-fn update_people(mut query: Query<&mut Name, With<Person>>) {
-    for mut name in &mut query {
-        if name.0 == "Elaina Proctor" {
-            name.0 = "Elaina Hume".to_string();
-            break; // We don’t need to change any other names
-        }
+fn apply_gravity(mut query: Query<(&mut Velocity, &Gravity)>, time: Res<Time>) {
+    for (mut v, g) in &mut query {
+        v.0.y -= g.0 * time.delta_seconds();
     }
 }
