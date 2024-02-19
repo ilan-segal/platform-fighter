@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::Anchor};
 
 #[derive(Component)]
 struct Collider {
@@ -70,6 +70,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             texture: asset_server.load("sprite/character/robot/walk0.png"),
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 0.0),
+                ..default()
+            },
+            sprite: Sprite {
+                anchor: Anchor::BottomCenter,
                 ..default()
             },
             ..default()
