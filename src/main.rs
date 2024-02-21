@@ -1,4 +1,27 @@
+use bevy::time::Fixed;
+use bevy::time::Time;
 use bevy::{prelude::*, sprite::Anchor};
+use std::time::Duration;
+
+const UPDATES_PER_SECOND: u8 = 60;
+const SECONDS_PER_UPDATE: f32 = 1.0 / (UPDATES_PER_SECOND as f32);
+
+fn main() {
+    let fixed_update_systems = (
+        apply_velocity,
+        apply_gravity,
+        snap_transform_to_position,
+        increment_frame_counter,
+    );
+    App::new()
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_secs_f32(
+            SECONDS_PER_UPDATE,
+        )))
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, fixed_update_systems.chain())
+        .run();
+}
 
 #[derive(Component)]
 struct Collider {
@@ -11,7 +34,7 @@ impl Collider {
     fn get_pushback(&self, p: &Vec2, d: &Vec2) -> Option<Vec2> {
         let denominator = self.normal.dot(*d);
         // If denominator is 0, velocity is parallel to collider
-        // If denominator is greater than 0, we're moving away from the collider
+        // If denominator is positive, we're moving away from the collider
         if denominator >= 0.0 {
             return None;
         }
@@ -41,27 +64,24 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Gravity(f32);
 
+#[derive(Component)]
+struct FallSpeed(f32);
+
+#[derive(Component)]
+struct FrameCounter(u32);
+
 #[derive(Bundle)]
 struct PlayerBundle {
     marker: Player,
     position: Position,
     velocity: Velocity,
     gravity: Gravity,
+    fall_speed: FallSpeed,
+    frame_counter: FrameCounter,
 }
 
 #[derive(Component)]
 struct Terrain;
-
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (apply_velocity, apply_gravity, snap_transform_to_position).chain(),
-        )
-        .run();
-}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
@@ -82,7 +102,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             marker: Player,
             position: Position(Vec2::new(0.0, 0.0)),
             velocity: Velocity(Vec2::new(0.0, 0.0)),
-            gravity: Gravity(100.0),
+            gravity: Gravity(1.0),
+            fall_speed: FallSpeed(100.0),
+            frame_counter: FrameCounter(0),
         },
     ));
     commands.spawn((
@@ -107,14 +129,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn apply_velocity(
-    mut query: Query<(&mut Position, &Velocity)>,
-    colliders: Query<&Collider>,
-    time: Res<Time>,
-) {
+fn apply_velocity(mut query: Query<(&mut Position, &Velocity)>, colliders: Query<&Collider>) {
     for (mut p, v) in &mut query {
-        let displacement = v.0 * time.delta_seconds();
-        displace(&mut p, &displacement, colliders.iter());
+        displace(&mut p, &v.0, colliders.iter());
     }
 }
 
@@ -138,8 +155,17 @@ fn snap_transform_to_position(mut query: Query<(&mut Transform, &Position)>) {
     }
 }
 
-fn apply_gravity(mut query: Query<(&mut Velocity, &Gravity)>, time: Res<Time>) {
-    for (mut v, g) in &mut query {
-        v.0.y -= g.0 * time.delta_seconds();
+fn apply_gravity(mut query: Query<(&mut Velocity, &Gravity, &FallSpeed)>) {
+    for (mut v, g, f) in &mut query {
+        v.0.y -= g.0;
+        if v.0.y < -f.0 {
+            v.0.y = -f.0;
+        }
+    }
+}
+
+fn increment_frame_counter(mut query: Query<&mut FrameCounter>) {
+    for mut c in &mut query {
+        c.0 += 1;
     }
 }
