@@ -1,7 +1,8 @@
-use bevy::time::Fixed;
-use bevy::time::Time;
 use bevy::{prelude::*, sprite::Anchor};
 use std::time::Duration;
+
+mod events;
+mod player;
 
 const UPDATES_PER_SECOND: u8 = 60;
 const SECONDS_PER_UPDATE: f32 = 1.0 / (UPDATES_PER_SECOND as f32);
@@ -67,9 +68,6 @@ struct Gravity(f32);
 #[derive(Component)]
 struct FallSpeed(f32);
 
-#[derive(Component)]
-struct FrameCounter(u32);
-
 #[derive(Bundle)]
 struct PlayerBundle {
     marker: Player,
@@ -77,7 +75,6 @@ struct PlayerBundle {
     velocity: Velocity,
     gravity: Gravity,
     fall_speed: FallSpeed,
-    frame_counter: FrameCounter,
 }
 
 #[derive(Component)]
@@ -104,7 +101,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             velocity: Velocity(Vec2::new(0.0, 0.0)),
             gravity: Gravity(1.0),
             fall_speed: FallSpeed(100.0),
-            frame_counter: FrameCounter(0),
         },
     ));
     commands.spawn((
